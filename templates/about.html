@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}About — LeafLens AI{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="hero">
+    <span class="hero-eyebrow">🌿 About</span>
+    <h1>About LeafLens AI</h1>
+    <p>An AI-powered plant disease detection system that identifies diseases from leaf images and localizes the affected regions.</p>
+  </div>
+
+  <div class="about-section">
+    <h2>What it does</h2>
+    <p>
+      LeafLens AI combines two machine learning approaches to give a more complete diagnosis than either
+      model alone. A convolutional neural network (CNN) classifies the overall disease category from the
+      leaf image, while a YOLO object detector localizes the region of the leaf the model is focusing on,
+      drawing a visible bounding box around it. Together, they provide both an answer and a visual
+      explanation of where that answer comes from.
+    </p>
+  </div>
+
+  <div class="about-section">
+    <h2>How it works</h2>
+    <div class="step-flow">
+      <span class="step-chip">Upload</span><span class="step-sep">→</span>
+      <span class="step-chip">Classify</span><span class="step-sep">→</span>
+      <span class="step-chip">Detect</span><span class="step-sep">→</span>
+      <span class="step-chip">Analyze</span><span class="step-sep">→</span>
+      <span class="step-chip">Report</span>
+    </div>
+  </div>
+
+  <div class="about-section">
+    <h2>Technology stack</h2>
+    <div class="tech-stack">
+      <span class="tech-chip">Python</span>
+      <span class="tech-chip">TensorFlow</span>
+      <span class="tech-chip">YOLOv8</span>
+      <span class="tech-chip">Flask</span>
+      <span class="tech-chip">OpenCV</span>
+      <span class="tech-chip">ReportLab</span>
+    </div>
+  </div>
+
+  <div class="about-section">
+    <h2>A note on accuracy</h2>
+    <p>
+      LeafLens AI is a student/internship project intended to demonstrate a CNN + YOLO pipeline for plant
+      disease detection. Predictions are generated automatically and should be treated as a supporting
+      reference rather than a substitute for professional agronomic diagnosis, particularly for
+      high-stakes crop decisions.
+    </p>
+  </div>
+</div>
+{% endblock %}

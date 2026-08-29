@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}The Models — LeafLens AI{% endblock %}
+
+{% block content %}
+<div class="wide-container">
+  <div class="hero">
+    <span class="hero-eyebrow">🤖 Under the hood</span>
+    <h1>The Models</h1>
+    <p>Two models, two jobs: one classifies, one localizes. Here's how each was built.</p>
+  </div>
+
+  <div class="model-card-detail">
+    <h3>🧠 CNN Classifier</h3>
+    <ul class="model-spec-list">
+      <li><span>Architecture</span><span>Convolutional Neural Network (trained from scratch)</span></li>
+      <li><span>Classes</span><span>{{ num_classes }}</span></li>
+      <li><span>Input size</span><span>128 × 128 px</span></li>
+      <li><span>Training dataset</span><span>PlantVillage</span></li>
+      <li><span>Framework</span><span>TensorFlow / Keras</span></li>
+      <li><span>Purpose</span><span>Fine-grained disease classification</span></li>
+    </ul>
+  </div>
+
+  <div class="model-card-detail">
+    <h3>🎯 YOLO Detector</h3>
+    <ul class="model-spec-list">
+      <li><span>Architecture</span><span>YOLOv8 (trained from scratch, no pretrained weights)</span></li>
+      <li><span>Training dataset</span><span>PlantVillage, auto-annotated via image processing</span></li>
+      <li><span>Detects</span><span>Leaf region / affected area bounding boxes</span></li>
+      <li><span>Framework</span><span>Ultralytics YOLOv8</span></li>
+      <li><span>Purpose</span><span>Visual localization of the region driving the prediction</span></li>
+    </ul>
+  </div>
+
+  <div class="model-card-detail">
+    <h3>📷 Live Camera — Multimodal Vision API</h3>
+    <ul class="model-spec-list">
+      <li><span>Provider</span><span>Groq (inference platform)</span></li>
+      <li><span>Model</span><span>Qwen 3.6 27B (multimodal, vision-capable)</span></li>
+      <li><span>Training</span><span>General-purpose pretrained model — not custom-trained on PlantVillage</span></li>
+      <li><span>Input</span><span>A single captured camera frame + a structured prompt</span></li>
+      <li><span>Output</span><span>JSON: plant, likely disease, qualitative confidence, severity, symptoms, recommendation</span></li>
+      <li><span>Purpose</span><span>Fast, general-purpose second opinion — separate from the CNN/YOLO pipeline</span></li>
+    </ul>
+  </div>
+
+  <div class="about-section">
+    <h2>Why the Live Camera result looks different</h2>
+    <p>
+      The Live Camera feature deliberately uses a different visual style and a qualitative confidence label
+      ("High" / "Moderate" / "Low") instead of a numeric percentage. This is intentional: the CNN and YOLO
+      models were trained specifically on the PlantVillage dataset and their confidence scores are real
+      calibrated probabilities from that training. The multimodal vision API is a general-purpose model that
+      was never trained on this specific dataset — presenting its output identically to the CNN/YOLO results
+      would imply a level of precision it doesn't actually have. Every Live Camera result is clearly labeled
+      with which multimodal API and model produced it.
+    </p>
+  </div>
+
+  <div class="pipeline-section">
+    <h2 style="margin-bottom: 20px; font-size: 20px;">The pipeline</h2>
+    <div class="pipeline-diagram">
+      <div class="pipeline-node">
+        <div class="pipeline-node-circle">🖼️</div>
+        <div class="pipeline-node-label">Leaf Image</div>
+        <div class="pipeline-node-sub">input</div>
+      </div>
+      <div class="pipeline-vein">
+        <svg viewBox="0 0 48 2" preserveAspectRatio="none"><path d="M0,1 L48,1" /></svg>
+      </div>
+      <div class="pipeline-node">
+        <div class="pipeline-node-circle">🧠</div>
+        <div class="pipeline-node-label">CNN Classifier</div>
+        <div class="pipeline-node-sub">disease class</div>
+      </div>
+      <div class="pipeline-vein">
+        <svg viewBox="0 0 48 2" preserveAspectRatio="none"><path d="M0,1 L48,1" /></svg>
+      </div>
+      <div class="pipeline-node">
+        <div class="pipeline-node-circle">🎯</div>
+        <div class="pipeline-node-label">YOLO Detector</div>
+        <div class="pipeline-node-sub">affected region</div>
+      </div>
+      <div class="pipeline-vein">
+        <svg viewBox="0 0 48 2" preserveAspectRatio="none"><path d="M0,1 L48,1" /></svg>
+      </div>
+      <div class="pipeline-node">
+        <div class="pipeline-node-circle">⚙️</div>
+        <div class="pipeline-node-label">Result Engine</div>
+        <div class="pipeline-node-sub">combine + score</div>
+      </div>
+      <div class="pipeline-vein">
+        <svg viewBox="0 0 48 2" preserveAspectRatio="none"><path d="M0,1 L48,1" /></svg>
+      </div>
+      <div class="pipeline-node">
+        <div class="pipeline-node-circle">🌿</div>
+        <div class="pipeline-node-label">LeafLens AI</div>
+        <div class="pipeline-node-sub">diagnosis</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="about-section">
+    <h2>How the final result is combined</h2>
+    <p>
+      Both models run on every uploaded image. If they agree on the diagnosis, the combined confidence
+      is boosted slightly to reflect that agreement. If they disagree, the result from whichever model
+      reported higher confidence is used as the final diagnosis, and both individual predictions are
+      still shown side by side so the disagreement is visible rather than hidden.
+    </p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}History — LeafLens AI{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="hero" style="margin-bottom: 24px;">
+    <span class="hero-eyebrow">📜 History</span>
+    <h1>Prediction History</h1>
+    <p>A local log of your recent analyses on this device.</p>
+  </div>
+
+  <div class="history-toolbar">
+    <span class="history-count">{{ entries|length }} analysis{{ 'es' if entries|length != 1 else '' }} recorded</span>
+    {% if entries %}
+    <button class="btn-danger-outline" id="clearHistoryBtn">🗑 Clear History</button>
+    {% endif %}
+  </div>
+
+  {% if entries %}
+  <div class="history-list">
+    {% for entry in entries %}
+    <div class="history-item">
+      <img class="history-thumb" src="{{ url_for('static', filename='uploads/' ~ entry.image_file) }}" alt="" />
+      <div class="history-info">
+        <div class="history-name">
+          {{ entry.prediction }}
+          {% if entry.source == 'camera' %}
+          <span class="format-chip" style="margin-left:6px; color: var(--blue); border-color:#BFDBFE;">📷 AI CAMERA</span>
+          {% else %}
+          <span class="format-chip" style="margin-left:6px;">🧠 CNN+YOLO</span>
+          {% endif %}
+        </div>
+        <div class="history-time">{{ entry.timestamp }}</div>
+      </div>
+      <div class="history-status">
+        {% if entry.source == 'camera' %}
+        <span class="history-confidence">{{ entry.confidence }}</span>
+        {% else %}
+        <span class="history-confidence">{{ entry.confidence }}%</span>
+        {% endif %}
+        <span class="status-dot {% if entry.is_healthy %}healthy{% else %}{{ entry.confidence_level }}{% endif %}"></span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-state-icon">🌱</div>
+    <h3>No analyses yet</h3>
+    <p>Once you analyze a leaf image, it'll show up here.</p>
+  </div>
+  {% endif %}
+</div>
+
+<form id="clearHistoryForm" action="{{ url_for('clear_history') }}" method="POST" style="display:none;"></form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const clearBtn = document.getElementById("clearHistoryBtn");
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      if (confirm("Clear all prediction history? This can't be undone.")) {
+        document.getElementById("clearHistoryForm").submit();
+      }
+    });
+  }
+</script>
+{% endblock %}

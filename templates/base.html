@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}LeafLens AI — Plant Disease Detection{% endblock %}</title>
+  <meta name="description" content="Upload a leaf image and get instant AI-powered plant disease diagnosis using CNN classification and YOLO lesion detection." />
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap"
+    rel="stylesheet"
+  />
+
+  <script>
+    // Set theme before paint to avoid a light->dark flash
+    (function () {
+      var theme = localStorage.getItem("leaflens-theme") || "light";
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
+</head>
+<body>
+  <div class="leaf-blob blob-1"></div>
+  <div class="leaf-blob blob-2"></div>
+
+  <nav class="navbar">
+    <a href="{{ url_for('home') }}" class="nav-logo">
+      <span class="nav-logo-icon">🌿</span>
+      <div class="nav-logo-text">
+        <span class="nav-logo-name">LeafLens <span class="accent">AI</span></span>
+        <span class="nav-logo-tag">Disease Detection</span>
+      </div>
+    </a>
+
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+
+    <div class="nav-links" id="navLinks">
+      <a href="{{ url_for('home') }}" class="{{ 'active' if request.path == url_for('home') else '' }}">Home</a>
+      <a href="{{ url_for('about') }}" class="{{ 'active' if request.path == url_for('about') else '' }}">About</a>
+      <a href="{{ url_for('about_model') }}" class="{{ 'active' if request.path == url_for('about_model') else '' }}">The Models</a>
+      <a href="{{ url_for('history') }}" class="{{ 'active' if request.path == url_for('history') else '' }}">History</a>
+    </div>
+
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode" title="Toggle dark mode">
+      <span class="theme-icon-light">☀️</span>
+      <span class="theme-icon-dark">🌙</span>
+    </button>
+  </nav>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-init" style="display:none">
+        {% for category, message in messages %}
+          <div data-category="{{ category }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <main id="pageContent" class="page-content">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">
+    <p>LeafLens AI — CNN + YOLO powered plant disease detection</p>
+    <p class="footer-sub">Python · TensorFlow · YOLOv8 · Flask · OpenCV</p>
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

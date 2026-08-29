@@ -1,0 +1,569 @@
+{% extends "base.html" %}
+{% block title %}LeafLens AI — Upload & Detect Plant Diseases{% endblock %}
+
+{% block content %}
+<div class="container">
+
+  <div class="hero">
+    <span class="hero-eyebrow">🔬 AI Detection Engine</span>
+    <h1>Upload &amp; Detect Plant Diseases</h1>
+    <p>Upload a leaf image for CNN + YOLO analysis, or scan live with your camera for an instant AI vision read.</p>
+  </div>
+
+  <div class="action-grid">
+
+    <!-- ===================== LIVE CAMERA (left on desktop, top on mobile) ===================== -->
+    <div class="action-column camera-column">
+      <div class="camera-card" id="cameraCard">
+        <div class="camera-icon">📷</div>
+        <h3>Live Camera Scan</h3>
+        <p class="camera-sub">Capture a leaf photo and get an instant AI vision read.</p>
+
+        <div class="camera-video-wrap" id="cameraVideoWrap">
+          <video id="cameraVideo" autoplay playsinline muted></video>
+        </div>
+        <canvas id="cameraCanvas" style="display:none;"></canvas>
+
+        <div class="camera-preview-wrap" id="cameraPreviewWrap">
+          <img id="cameraPreviewImg" src="" alt="Captured frame" />
+        </div>
+
+        <div class="camera-btn-row" id="cameraBtnRow">
+          <button type="button" class="capture-btn" id="startCameraBtn">📷 Start Camera</button>
+        </div>
+      </div>
+      <p class="action-desc"><span class="flow-chip">Live Camera</span> → <span class="flow-chip">Vision API</span> → AI visual analysis</p>
+    </div>
+
+    <!-- ===================== UPLOAD IMAGE (right on desktop, bottom on mobile) ===================== -->
+    <div class="action-column upload-column">
+      <form id="predictForm" action="{{ url_for('predict') }}" method="POST" enctype="multipart/form-data" novalidate>
+        <div class="upload-area" id="uploadArea">
+          <div class="upload-icon">☁️</div>
+          <h3>Drag &amp; drop your leaf image here</h3>
+          <p class="upload-sub">or click to browse</p>
+          <div class="upload-formats">
+            <span class="format-chip">JPG</span>
+            <span class="format-chip">PNG</span>
+            <span class="format-chip">WEBP</span>
+            <span class="format-chip">JPEG</span>
+          </div>
+          <input type="file" id="imageUpload" name="image" accept="image/jpeg,image/png,image/webp" required />
+          <button type="button" class="select-btn" id="selectBtn">📂 Select Image</button>
+        </div>
+
+        <div class="preview-container" id="previewContainer" style="display:none;">
+          <img id="imagePreview" src="" alt="Preview" class="preview-img" />
+          <p class="file-meta" id="fileMeta"></p>
+          <div class="preview-actions">
+            <button type="button" class="btn-secondary" id="removeBtn">↺ Change Image</button>
+            <button type="submit" class="predict-btn" id="predictBtn" style="width:auto; margin:0;">
+              <span class="spinner"></span>
+              <span class="btn-label-default">🔍 Analyze Disease</span>
+            </button>
+          </div>
+        </div>
+      </form>
+      <p class="action-desc"><span class="flow-chip">Upload Image</span> → <span class="flow-chip">CNN + YOLO</span> → 38-class prediction</p>
+    </div>
+
+  </div>
+
+  <!-- Hidden form used by the camera flow to submit the captured frame -->
+  <form id="cameraForm" action="{{ url_for('camera_analyze') }}" method="POST" enctype="multipart/form-data" style="display:none;">
+    <input type="file" id="cameraFileInput" name="image" />
+  </form>
+
+  <!-- ===================== Branching pipeline diagram ===================== -->
+  <div class="branch-pipeline">
+    <div class="branch-pipeline-title">How it works</div>
+    <div class="branch-tree">
+      <div class="branch-root">🌿 LeafLens AI</div>
+      <div class="branch-connector-v"></div>
+      <div class="branch-split">
+        <div class="branch-arm">
+          <div class="branch-node upload-node"><span class="branch-node-emoji">📤</span>Upload Image</div>
+          <div class="branch-arm-connector"></div>
+          <div class="branch-node upload-node"><span class="branch-node-emoji">🧠</span>CNN + YOLO</div>
+          <div class="branch-arm-connector"></div>
+          <div class="branch-node upload-node"><span class="branch-node-emoji">🎯</span>38-class prediction</div>
+        </div>
+        <div class="branch-arm">
+          <div class="branch-node camera-node"><span class="branch-node-emoji">📷</span>Live Camera</div>
+          <div class="branch-arm-connector"></div>
+          <div class="branch-node camera-node"><span class="branch-node-emoji">🤖</span>Vision API</div>
+          <div class="branch-arm-connector"></div>
+          <div class="branch-node camera-node"><span class="branch-node-emoji">👁️</span>AI visual analysis</div>
+        </div>
+      </div>
+      <div class="branch-connector-v"></div>
+      <div class="branch-merge-target">📜 Results / History</div>
+    </div>
+  </div>
+
+  <!-- Loading overlay (shared by both upload and camera flows) -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-card">
+      <span class="loading-leaf">🌿</span>
+      <h3>Analyzing your leaf</h3>
+      <div class="loading-bar-track"><div class="loading-bar-fill" id="loadingBarFill"></div></div>
+      <div class="loading-stage-text" id="loadingStageText">Detecting plant...</div>
+    </div>
+  </div>
+
+  {% if camera_result %}
+  <div class="results-section" id="resultsSection">
+
+    {% if not cam_is_leaf %}
+    <div class="banner banner-warning">
+      <span class="banner-icon">🤔</span>
+      <div>
+        <strong>The AI wasn't confident this shows a plant leaf.</strong><br />
+        {{ cam_notes }}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="results-header">
+      <h2>AI Camera Scan Results</h2>
+      <span class="model-badge camera-model-badge">LIVE CAMERA · MULTIMODAL AI</span>
+    </div>
+
+    <div class="image-result-card" style="margin-bottom:22px; max-width: 420px; margin-left:auto; margin-right:auto;">
+      <h3>📷 CAPTURED IMAGE</h3>
+      <img src="{{ url_for('static', filename='uploads/' ~ cam_image_file) }}" alt="Captured leaf" class="result-img" />
+    </div>
+
+    <div class="camera-result-card">
+      <div class="prediction-label">PLANT IDENTIFIED</div>
+      <div class="camera-plant-name">
+        <span class="plant-emoji">🌱</span>
+        <h2 style="color:white;">{{ cam_plant }}</h2>
+      </div>
+      <div class="camera-disease-row">
+        <span class="disease-emoji">{% if 'healthy' in cam_disease.lower() %}✅{% else %}🔴{% endif %}</span>
+        <span class="camera-disease-name">{{ cam_disease }}</span>
+      </div>
+      <span class="qual-confidence-badge">Confidence: {{ cam_confidence_text }}</span>
+      <div class="api-used-strip">🤖 Multimodal API Used: {{ model_display_name }}</div>
+    </div>
+
+    <div class="info-grid">
+      <div class="info-card">
+        <div class="info-card-header"><span class="info-icon">📋</span><h3>Symptoms</h3></div>
+        <ul>{% for item in cam_symptoms %}<li>{{ item }}</li>{% endfor %}</ul>
+      </div>
+
+      <div class="info-card">
+        <div class="info-card-header"><span class="info-icon">💡</span><h3>Recommendation</h3></div>
+        <ul>{% for item in cam_recommendation %}<li>{{ item }}</li>{% endfor %}</ul>
+      </div>
+
+      <div class="info-card">
+        <div class="info-card-header"><span class="info-icon">⚠️</span><h3>Severity</h3></div>
+        <div class="severity-badge severity-{{ cam_severity|lower }}">{{ cam_severity }}</div>
+      </div>
+
+      <div class="info-card organic-card">
+        <div class="info-card-header"><span class="info-icon">📝</span><h3>Notes</h3></div>
+        <p>{{ cam_notes or "No additional notes." }}</p>
+      </div>
+    </div>
+
+    <div class="banner banner-warning" style="margin-top:20px;">
+      <span class="banner-icon">ℹ️</span>
+      <div>This is a general-purpose multimodal AI vision analysis, separate from LeafLens' custom-trained CNN and YOLO models. Treat it as an exploratory reading, not a lab-verified diagnosis.</div>
+    </div>
+  </div>
+  {% elif prediction %}
+  <div class="results-section" id="resultsSection">
+
+    {% if no_leaf_detected %}
+    <div class="banner banner-warning">
+      <span class="banner-icon">🤔</span>
+      <div>
+        <strong>We're not fully confident this is a leaf image.</strong><br />
+        Both models returned low confidence. Try a clearer, well-lit photo of a single leaf for a more reliable result. The prediction below is still shown for reference.
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="results-header">
+      <h2>Diagnosis Results</h2>
+      <span class="model-badge">CNN + YOLO COMBINED</span>
+    </div>
+
+    <div class="results-grid">
+      <div class="image-result-card">
+        <h3>📤 UPLOADED IMAGE</h3>
+        <img src="{{ url_for('static', filename='uploads/' ~ image_file) }}" alt="Uploaded leaf" class="result-img" />
+      </div>
+
+      {% if annotated_file %}
+      <div class="image-result-card yolo-card">
+        <h3>🎯 YOLO DETECTION</h3>
+        <img src="{{ url_for('static', filename='uploads/' ~ annotated_file) }}" alt="YOLO annotated detection" class="result-img" />
+        {% if yolo_detections > 0 %}
+        <div class="detection-count">{{ yolo_detections }} region{{ 's' if yolo_detections != 1 else '' }} detected</div>
+        {% endif %}
+      </div>
+      {% else %}
+      <div class="image-result-card">
+        <h3>🎯 YOLO DETECTION</h3>
+        <div style="padding: 40px 12px; color: var(--ink-faint); font-size: 13.5px;">No bounding regions detected on this image.</div>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="model-breakdown">
+      <div class="breakdown-card">
+        <div class="breakdown-header">
+          <span class="breakdown-icon">🧠</span>
+          <div>
+            <h4>CNN Classification</h4>
+            <span class="breakdown-subtitle">Keras / TensorFlow</span>
+          </div>
+        </div>
+        <div class="breakdown-result">{{ cnn_result }}</div>
+        <div class="mini-confidence">
+          <span>{{ "%.1f"|format(cnn_confidence) }}%</span>
+          <div class="mini-progress">
+            <div class="mini-progress-fill {% if cnn_confidence >= 85 %}high{% elif cnn_confidence >= 60 %}medium{% else %}low{% endif %}" style="width: {{ cnn_confidence }}%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="breakdown-card">
+        <div class="breakdown-header">
+          <span class="breakdown-icon">🎯</span>
+          <div>
+            <h4>YOLO Detection</h4>
+            <span class="breakdown-subtitle">Ultralytics YOLOv8</span>
+          </div>
+        </div>
+        <div class="breakdown-result">{{ yolo_result }}</div>
+        <div class="mini-confidence">
+          <span>{{ "%.1f"|format(yolo_confidence) }}%</span>
+          <div class="mini-progress">
+            <div class="mini-progress-fill {% if yolo_confidence >= 85 %}high{% elif yolo_confidence >= 60 %}medium{% else %}low{% endif %}" style="width: {{ yolo_confidence }}%;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="agreement-strip">
+      {% if agreement == 'agree' %}
+      <span class="agreement-badge agree">✅ Both models agree</span>
+      {% elif agreement == 'disagree' %}
+      <span class="agreement-badge disagree">⚡ Models differ — higher-confidence result used</span>
+      {% else %}
+      <span class="agreement-badge neutral">🧠 CNN classification used</span>
+      {% endif %}
+    </div>
+
+    <div class="prediction-card">
+      <div class="prediction-label">FINAL DIAGNOSIS</div>
+      <div class="prediction-name">
+        <span class="prediction-emoji">{% if 'healthy' in prediction.lower() %}✅{% else %}🔴{% endif %}</span>
+        <h2>{{ prediction }}</h2>
+      </div>
+
+      <div class="confidence-header">
+        <span>Combined Confidence
+          <span class="confidence-badge {{ confidence_level }}">
+            {% if confidence_level == 'high' %}HIGH{% elif confidence_level == 'medium' %}MEDIUM{% else %}LOW{% endif %}
+          </span>
+        </span>
+        <span class="confidence-value">{{ "%.1f"|format(confidence) }}%</span>
+      </div>
+      <div class="progress">
+        <div class="progress-fill {{ confidence_level }}" style="width: {{ confidence }}%;"></div>
+      </div>
+
+      {% if not no_leaf_detected %}
+      <a href="{{ url_for('download_report', image_file=image_file) }}" class="report-download-btn">⬇ Download PDF Report</a>
+      {% endif %}
+    </div>
+
+    <div class="info-grid">
+      <div class="info-card">
+        <div class="info-card-header"><span class="info-icon">📋</span><h3>Symptoms</h3></div>
+        <ul>{% for item in symptoms %}<li>{{ item }}</li>{% endfor %}</ul>
+      </div>
+
+      <div class="info-card">
+        <div class="info-card-header"><span class="info-icon">💊</span><h3>Treatment</h3></div>
+        <ul>{% for item in treatment %}<li>{{ item }}</li>{% endfor %}</ul>
+      </div>
+
+      <div class="info-card">
+        <div class="info-card-header"><span class="info-icon">🛡️</span><h3>Prevention</h3></div>
+        <ul>{% for item in prevention %}<li>{{ item }}</li>{% endfor %}</ul>
+      </div>
+
+      <div class="info-card">
+        <div class="info-card-header"><span class="info-icon">⚠️</span><h3>Severity</h3></div>
+        <div class="severity-badge severity-{{ severity|lower }}">{{ severity }}</div>
+      </div>
+
+      <div class="info-card organic-card">
+        <div class="info-card-header"><span class="info-icon">🌱</span><h3>Organic Remedy</h3></div>
+        <p>{{ organic }}</p>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    const uploadArea = document.getElementById("uploadArea");
+    const fileInput = document.getElementById("imageUpload");
+    const selectBtn = document.getElementById("selectBtn");
+    const previewContainer = document.getElementById("previewContainer");
+    const imagePreview = document.getElementById("imagePreview");
+    const fileMeta = document.getElementById("fileMeta");
+    const removeBtn = document.getElementById("removeBtn");
+    const predictForm = document.getElementById("predictForm");
+    const predictBtn = document.getElementById("predictBtn");
+    const loadingOverlay = document.getElementById("loadingOverlay");
+    const loadingBarFill = document.getElementById("loadingBarFill");
+    const loadingStageText = document.getElementById("loadingStageText");
+
+    const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+    const MAX_SIZE_MB = 16;
+
+    selectBtn.addEventListener("click", (e) => { e.stopPropagation(); fileInput.click(); });
+    uploadArea.addEventListener("click", () => fileInput.click());
+
+    uploadArea.addEventListener("dragover", (e) => { e.preventDefault(); uploadArea.classList.add("drag-over"); });
+    uploadArea.addEventListener("dragleave", () => uploadArea.classList.remove("drag-over"));
+    uploadArea.addEventListener("drop", (e) => {
+      e.preventDefault();
+      uploadArea.classList.remove("drag-over");
+      if (e.dataTransfer.files.length) {
+        fileInput.files = e.dataTransfer.files;
+        handleFile(e.dataTransfer.files[0]);
+      }
+    });
+
+    fileInput.addEventListener("change", function () {
+      if (this.files[0]) handleFile(this.files[0]);
+    });
+
+    function handleFile(file) {
+      if (!ACCEPTED_TYPES.includes(file.type)) {
+        LeafLens.showToast("Unsupported file type. Please use JPG, PNG, or WEBP.", "error");
+        fileInput.value = "";
+        return;
+      }
+      const sizeMB = file.size / (1024 * 1024);
+      if (sizeMB > MAX_SIZE_MB) {
+        LeafLens.showToast(`Image is too large (${sizeMB.toFixed(1)} MB). Max size is ${MAX_SIZE_MB} MB.`, "error");
+        fileInput.value = "";
+        return;
+      }
+      showPreview(file);
+    }
+
+    function showPreview(file) {
+      fileMeta.innerText = `${file.name} · ${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        imagePreview.src = e.target.result;
+        previewContainer.style.display = "block";
+        uploadArea.style.display = "none";
+      };
+      reader.readAsDataURL(file);
+    }
+
+    removeBtn.addEventListener("click", () => {
+      fileInput.value = "";
+      previewContainer.style.display = "none";
+      uploadArea.style.display = "block";
+    });
+
+    // Loading state + staged messages on submit
+    const stages = ["Detecting plant...", "Running CNN classifier...", "Localizing affected regions with YOLO...", "Preparing results..."];
+    predictForm.addEventListener("submit", (e) => {
+      if (!fileInput.files.length) {
+        e.preventDefault();
+        LeafLens.showToast("Please select an image before analyzing.", "error");
+        return;
+      }
+      predictBtn.disabled = true;
+      predictBtn.classList.add("loading");
+      loadingOverlay.classList.add("active");
+
+      let progress = 0;
+      let stageIdx = 0;
+      loadingStageText.textContent = stages[0];
+      const interval = setInterval(() => {
+        progress = Math.min(progress + Math.random() * 18, 92);
+        loadingBarFill.style.width = progress + "%";
+        const newStage = Math.min(Math.floor((progress / 92) * stages.length), stages.length - 1);
+        if (newStage !== stageIdx) {
+          stageIdx = newStage;
+          loadingStageText.textContent = stages[stageIdx];
+        }
+      }, 350);
+
+      window.addEventListener("beforeunload", () => clearInterval(interval));
+    });
+
+    // Smooth scroll to results if present
+    const resultsSection = document.getElementById("resultsSection");
+    if (resultsSection) {
+      setTimeout(() => resultsSection.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+    }
+  })();
+</script>
+
+<script>
+  // ================= Live Camera flow =================
+  (function () {
+    const cameraCard = document.getElementById("cameraCard");
+    const startCameraBtn = document.getElementById("startCameraBtn");
+    const cameraVideoWrap = document.getElementById("cameraVideoWrap");
+    const cameraVideo = document.getElementById("cameraVideo");
+    const cameraCanvas = document.getElementById("cameraCanvas");
+    const cameraPreviewWrap = document.getElementById("cameraPreviewWrap");
+    const cameraPreviewImg = document.getElementById("cameraPreviewImg");
+    const cameraBtnRow = document.getElementById("cameraBtnRow");
+    const cameraForm = document.getElementById("cameraForm");
+    const cameraFileInput = document.getElementById("cameraFileInput");
+    const loadingOverlay = document.getElementById("loadingOverlay");
+    const loadingBarFill = document.getElementById("loadingBarFill");
+    const loadingStageText = document.getElementById("loadingStageText");
+
+    let mediaStream = null;
+    let capturedBlob = null;
+
+    function stopStream() {
+      if (mediaStream) {
+        mediaStream.getTracks().forEach((t) => t.stop());
+        mediaStream = null;
+      }
+    }
+
+    function renderButtons(state) {
+      // state: 'start' | 'live' | 'preview'
+      if (state === "start") {
+        cameraBtnRow.innerHTML = `<button type="button" class="capture-btn" id="startCameraBtn">📷 Start Camera</button>`;
+        document.getElementById("startCameraBtn").addEventListener("click", startCamera);
+      } else if (state === "live") {
+        cameraBtnRow.innerHTML = `
+          <button type="button" class="capture-btn" id="snapBtn">⚪ Capture</button>
+          <button type="button" class="btn-secondary" id="cancelCameraBtn">✕ Cancel</button>`;
+        document.getElementById("snapBtn").addEventListener("click", captureFrame);
+        document.getElementById("cancelCameraBtn").addEventListener("click", resetCamera);
+      } else if (state === "preview") {
+        cameraBtnRow.innerHTML = `
+          <button type="button" class="btn-secondary" id="retakeBtn">↺ Retake</button>
+          <button type="button" class="capture-btn" id="analyzeCameraBtn">🔍 Analyze with AI</button>`;
+        document.getElementById("retakeBtn").addEventListener("click", startCamera);
+        document.getElementById("analyzeCameraBtn").addEventListener("click", submitCameraCapture);
+      }
+    }
+
+    async function startCamera() {
+      cameraPreviewWrap.classList.remove("active");
+      cameraCard.classList.add("active");
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        LeafLens.showToast("Camera access isn't supported in this browser. Try Upload Image instead.", "error");
+        cameraCard.classList.remove("active");
+        return;
+      }
+
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+          audio: false,
+        });
+        cameraVideo.srcObject = mediaStream;
+        cameraVideoWrap.classList.add("active");
+        renderButtons("live");
+      } catch (err) {
+        cameraCard.classList.remove("active");
+        if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+          LeafLens.showToast("Camera permission denied. Please allow camera access and try again.", "error");
+        } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
+          LeafLens.showToast("No camera was found on this device.", "error");
+        } else {
+          LeafLens.showToast("Couldn't access the camera. Please try Upload Image instead.", "error");
+        }
+        renderButtons("start");
+      }
+    }
+
+    function captureFrame() {
+      const w = cameraVideo.videoWidth;
+      const h = cameraVideo.videoHeight;
+      if (!w || !h) {
+        LeafLens.showToast("Camera isn't ready yet — give it a second and try again.", "error");
+        return;
+      }
+      cameraCanvas.width = w;
+      cameraCanvas.height = h;
+      cameraCanvas.getContext("2d").drawImage(cameraVideo, 0, 0, w, h);
+
+      cameraCanvas.toBlob((blob) => {
+        if (!blob) {
+          LeafLens.showToast("Couldn't capture that frame. Please try again.", "error");
+          return;
+        }
+        capturedBlob = blob;
+        cameraPreviewImg.src = URL.createObjectURL(blob);
+        cameraVideoWrap.classList.remove("active");
+        cameraPreviewWrap.classList.add("active");
+        stopStream();
+        renderButtons("preview");
+      }, "image/jpeg", 0.9);
+    }
+
+    function resetCamera() {
+      stopStream();
+      cameraVideoWrap.classList.remove("active");
+      cameraPreviewWrap.classList.remove("active");
+      cameraCard.classList.remove("active");
+      capturedBlob = null;
+      renderButtons("start");
+    }
+
+    function submitCameraCapture() {
+      if (!capturedBlob) {
+        LeafLens.showToast("No captured image to analyze.", "error");
+        return;
+      }
+      const file = new File([capturedBlob], "camera-capture.jpg", { type: "image/jpeg" });
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      cameraFileInput.files = dt.files;
+
+      loadingOverlay.classList.add("active");
+      const stages = ["Uploading capture...", "Sending to Groq Vision API...", "Analyzing leaf with AI...", "Preparing results..."];
+      let progress = 0;
+      let stageIdx = 0;
+      loadingStageText.textContent = stages[0];
+      const interval = setInterval(() => {
+        progress = Math.min(progress + Math.random() * 18, 92);
+        loadingBarFill.style.width = progress + "%";
+        const newStage = Math.min(Math.floor((progress / 92) * stages.length), stages.length - 1);
+        if (newStage !== stageIdx) {
+          stageIdx = newStage;
+          loadingStageText.textContent = stages[stageIdx];
+        }
+      }, 350);
+      window.addEventListener("beforeunload", () => clearInterval(interval));
+
+      cameraForm.submit();
+    }
+
+    renderButtons("start");
+    window.addEventListener("beforeunload", stopStream);
+  })();
+</script>
+{% endblock %}
